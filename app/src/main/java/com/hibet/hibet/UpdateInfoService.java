@@ -41,7 +41,6 @@ public class UpdateInfoService {
 
     public UpdateInfo getUpDateInfo() throws Exception {
         String path = GetServerUrl.getUrl() + "/a.txt";
-        System.out.println("=================  getUpDateInfo!!!!  ================="+path);
         StringBuffer sb = new StringBuffer();
         String line = null;
         BufferedReader reader = null;
@@ -66,21 +65,18 @@ public class UpdateInfoService {
             }
         }
         String info = sb.toString();
-        System.out.println("=================== String info ================"+info);
         UpdateInfo updateInfo = new UpdateInfo();
 
         updateInfo.setVersion(info.split("&")[1]);
         updateInfo.setDescription(info.split("&")[2]);
         updateInfo.setUrl(info.split("&")[3]);
         this.updateInfo=updateInfo;
-        System.out.println("================== getUpdate info  =================="+updateInfo);
         return updateInfo;
     }
 
 
     public boolean isNeedUpdate(){
         String new_version = updateInfo.getVersion();
-        System.out.println("============== new_version ===================="+new_version);
         String now_version="";
         try {
             PackageManager packageManager = context.getPackageManager();
@@ -90,11 +86,7 @@ public class UpdateInfoService {
         } catch (NameNotFoundException e) {
             e.printStackTrace();
         }
-        if (new_version.equals(now_version)) {
-            return false;
-        } else {
-            return true;
-        }
+        return !new_version.equals(now_version);
     }
 
 
@@ -109,8 +101,8 @@ public class UpdateInfoService {
                 try {
                     response = client.execute(get);
                     HttpEntity entity = response.getEntity();
-                    int length = (int) entity.getContentLength();   //��ȡ�ļ���С
-                    progressDialog.setMax(length);                            //���ý��������ܳ���
+                    int length = (int) entity.getContentLength();
+                    progressDialog.setMax(length);
                     InputStream is = entity.getContent();
                     FileOutputStream fileOutputStream = null;
                     if (is != null) {
@@ -124,7 +116,7 @@ public class UpdateInfoService {
                         while ((ch = is.read(buf)) != -1) {
                             fileOutputStream.write(buf, 0, ch);
                             process += ch;
-                            progressDialog.setProgress(process);       //������ǹؼ���ʵʱ���½����ˣ�
+                            progressDialog.setProgress(process);
                         }
 
                     }
