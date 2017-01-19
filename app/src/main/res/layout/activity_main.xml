@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/activity_main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="com.hibet.hibet.MainActivity">
+
+    <WebView
+        android:id="@+id/webview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginBottom="49.8dp"/>
+
+    <ImageView
+        android:id="@+id/lead_line_horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="0.8dp"
+        android:layout_above="@+id/web_bottombar"
+        android:background="@drawable/lead_line"
+        />
+
+    <RelativeLayout
+        android:id="@+id/web_bottombar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_alignParentBottom="true">
+        <ImageView
+            android:id="@+id/go_back"
+            android:layout_width="119.3dp"
+            android:layout_height="49dp"
+            android:focusable="false"
+            android:src="@drawable/bottom_bar_go_back_selector"
+            android:layout_alignParentLeft="true"
+            android:scaleType="centerInside"
+            android:background="@drawable/bottom_bar_bg_selector"/>
+        <ImageView
+            android:id="@+id/lead_line_vertical_1"
+            android:layout_width="1dp"
+            android:layout_height="49dp"
+            android:layout_toRightOf="@+id/go_back"
+            android:background="@drawable/lead_line"/>
+        <ImageView
+            android:id="@+id/refresh"
+            android:layout_width="119.5dp"
+            android:layout_height="49dp"
+            android:focusable="false"
+            android:scaleType="centerInside"
+            android:layout_centerInParent="true"
+            android:src="@drawable/bottombar_refresh"
+            android:background="@drawable/bottom_bar_bg_selector"/>
+        <ImageView
+            android:id="@+id/lead_line_vertical_2"
+            android:layout_width="1dp"
+            android:layout_height="49dp"
+            android:layout_toRightOf="@+id/refresh"
+            android:background="@drawable/lead_line"/>
+        <ImageView
+            android:id="@+id/go_forward"
+            android:layout_width="119.5dp"
+            android:layout_height="49dp"
+            android:focusable="false"
+            android:scaleType="centerInside"
+            android:layout_alignParentRight="true"
+            android:src="@drawable/bottom_bar_go_forward_selector"
+            android:background="@drawable/bottom_bar_bg_selector"/>
+    </RelativeLayout>
+
+</RelativeLayout>
