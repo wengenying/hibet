@@ -1,10 +1,16 @@
 package com.hibet.hibet;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Bitmap;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.content.Context;
+import android.support.annotation.Nullable;
+import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -24,7 +30,8 @@ import android.content.DialogInterface;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
-import android.util.Log;
+import android.Manifest;
+import android.content.pm.PackageManager;
 
 import com.google.android.gms.appindexing.Action;
 import com.google.android.gms.appindexing.AppIndex;
@@ -33,19 +40,20 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.umeng.analytics.MobclickAgent;
 import com.umeng.analytics.MobclickAgent.EScenarioType;
 
+import static android.net.ConnectivityManager.TYPE_MOBILE;
+import static android.net.ConnectivityManager.TYPE_WIFI;
+
 
 public class MainActivity extends AppCompatActivity {
 
     private final static String TAG = "MainActivity";
 
-    //Umeng page count name
-    private final String mPageName = "MainActivity";
+    private final static String PAGE_NAME = "MainActivity";
 
     private Context mContext;
 
     private boolean isAdd = false;
 
-    private String mUrl;
     private WebView mWebView;
 
     private ImageView mGoBack;
@@ -70,12 +78,122 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         mContext = this;
-        mUrl = "http://www.hibet1.com";
+        int netCode = checkNetworkType(mContext);
+        if (netCode > -1) {
+            init();
+        }
+    }
+
+    private int checkNetworkType(Context mContext) {
+        try {
+            final ConnectivityManager connectivityManager = (ConnectivityManager) mContext
+                    .getSystemService(Context.CONNECTIVITY_SERVICE);
+            final NetworkInfo mobNetInfoActivity = connectivityManager
+                    .getActiveNetworkInfo();
+            if (mobNetInfoActivity == null || !mobNetInfoActivity.isAvailable()) {
+                Toast.makeText(MainActivity.this, "当前网络不可用，请检查网络",
+                        Toast.LENGTH_SHORT).show();
+                return -1;
+            } else {
+                // NetworkInfo不为null开始判断是网络类型
+                int netType = mobNetInfoActivity.getType();
+                if (netType == TYPE_WIFI) {
+                    // wifi net处理
+                    return TYPE_WIFI;
+                } else if (netType == ConnectivityManager.TYPE_MOBILE) {
+                    Toast.makeText(MainActivity.this, "当前使用的是移动网络",
+                            Toast.LENGTH_SHORT).show();
+                    return TYPE_MOBILE;
+                }
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return -2;
+        }
+        return -3;
+    }
+
+    @SuppressLint("HandlerLeak")
+    private Handler handler1 = new Handler() {
+        public void handleMessage(Message msg) {
+            if (updateInfoService.isNeedUpdate()) {
+                showUpdateDialog();
+            }
+        }
+    };
+
+    private void showUpdateDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setIcon(android.R.drawable.ic_dialog_info);
+        builder.setTitle("请升级APP至版本" + info.getVersion());
+        builder.setMessage(info.getDescription());
+        builder.setCancelable(false);
+        builder.setPositiveButton("确定", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                if (Environment.getExternalStorageState().equals(
+                        Environment.MEDIA_MOUNTED)) {
+                    downFile(info.getUrl());
+                } else {
+                    Toast.makeText(MainActivity.this, "SD卡不可用，请插入SD卡",
+                            Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+        builder.setNegativeButton("取消", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+            }
+        });
+        builder.create().show();
+    }
+
+    private void downFile(String url) {
+        progressDialog = new ProgressDialog(MainActivity.this);
+        progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        progressDialog.setTitle("正在下载");
+        progressDialog.setMessage("请稍候...");
+        progressDialog.setProgress(0);
+        progressDialog.show();
+        updateInfoService.downLoadFile(url, progressDialog, handler1);
+    }
+
+    // Storage Permissions
+    private static final int REQUEST_EXTERNAL_STORAGE = 0;
+    private static String[] PERMISSIONS_STORAGE = {
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+    };
+
+    /**
+     * Checks if the app has permission to write to device storage
+     * <p>
+     * If the app does not has permission then the user will be prompted to grant permissions
+     *
+     * @param activity
+     */
+    public static void verifyStoragePermissions(Activity activity) {
+        // Check if we have write permission
+        int permission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+
+        if (permission != PackageManager.PERMISSION_GRANTED) {
+            // We don't have permission so prompt the user
+            ActivityCompat.requestPermissions(
+                    activity,
+                    PERMISSIONS_STORAGE,
+                    REQUEST_EXTERNAL_STORAGE
+            );
+        }
+    }
+
+    private void init() {
+        Intent intent = getIntent();
+        String url = intent.getStringExtra("URL");
+        checkUpdate();
+        initUmeng();
         mWebView = (WebView) findViewById(R.id.webview);
         mGoBack = (ImageView) findViewById(R.id.go_back);
         mGoForward = (ImageView) findViewById(R.id.go_forward);
-
-        initUmeng();
 
         if (mWebView != null) {
             mGoBack.setEnabled(mWebView.canGoBack());
@@ -111,27 +229,17 @@ public class MainActivity extends AppCompatActivity {
         });
         mMainView = (RelativeLayout) findViewById(R.id.activity_main);
         initWebViewSettings();
-        showWebView(mUrl, null, null, null);
-        checkUpdate();
+        showWebView(url, null, null, null);
         // ATTENTION: This was auto-generated to implement the App Indexing API.
         // See https://g.co/AppIndexing/AndroidStudio for more information.
         mClient = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
     }
 
-    @SuppressLint("HandlerLeak")
-    private Handler handler1 = new Handler() {
-        public void handleMessage(Message msg) {
-            System.out.println("============== isNeedUpdate ================="+updateInfoService.isNeedUpdate());
-            if (updateInfoService.isNeedUpdate()) {
-                showUpdateDialog();
-            }
-        }
-
-        ;
-    };
-
     private void checkUpdate() {
-        Toast.makeText(MainActivity.this, "���ڼ��汾����..", Toast.LENGTH_SHORT).show();
+        Activity activity = MainActivity.this;
+        //activity is destory if no use ?
+        verifyStoragePermissions(activity);
+        Toast.makeText(MainActivity.this, "正在检查版本更新...", Toast.LENGTH_SHORT).show();
         new Thread() {
             public void run() {
                 try {
@@ -143,18 +251,14 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
-            ;
         }.start();
-        System.out.println("====================== check update !!!!! ======================");
     }
-
 
     private void initUmeng() {
         MobclickAgent.setDebugMode(true);
         MobclickAgent.openActivityDurationTrack(false);
         MobclickAgent.setScenarioType(mContext, EScenarioType.E_UM_NORMAL);
     }
-
 
     private void showWebView(String url, String username, String password, String result) {
         mWebView.getSettings().setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
@@ -181,11 +285,11 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
-        mWebView.loadUrl(mUrl);
+        mWebView.loadUrl(url);
     }
 
     /**
-     * init WebView Settings
+     * init WebView Settings ass
      */
     private void initWebViewSettings() {
         //adjust zoom display
@@ -220,14 +324,14 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        MobclickAgent.onPageStart(mPageName);
+        MobclickAgent.onPageStart(PAGE_NAME);
         MobclickAgent.onResume(mContext);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        MobclickAgent.onPageEnd(mPageName);
+        MobclickAgent.onPageEnd(PAGE_NAME);
         MobclickAgent.onPause(mContext);
     }
 
@@ -235,6 +339,10 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         MobclickAgent.onKillProcess(mContext);
+        mWebView.clearCache(true);
+        mWebView.clearFormData();
+        mWebView.clearSslPreferences();
+        mWebView.clearHistory();
         mWebView = null;
     }
 
@@ -257,11 +365,15 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onStart() {
         super.onStart();
-
         // ATTENTION: This was auto-generated to implement the App Indexing API.
         // See https://g.co/AppIndexing/AndroidStudio for more information.
         mClient.connect();
         AppIndex.AppIndexApi.start(mClient, getIndexApiAction());
+    }
+
+    @Override
+    protected void onPostCreate(@Nullable Bundle savedInstanceState) {
+        super.onPostCreate(savedInstanceState);
     }
 
     @Override
@@ -274,7 +386,7 @@ public class MainActivity extends AppCompatActivity {
         mClient.disconnect();
     }
 
-    private class webViewClient extends WebViewClient {
+    public class webViewClient extends WebViewClient {
 
         @Override
         public void onPageStarted(WebView view, String url, Bitmap favicon) {
@@ -298,46 +410,8 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
 
-        public void onProgressChanged(WebView view, int newProgress) {
-        }
-
     }
-
-    //��ʾ�Ƿ�Ҫ���µĶԻ���
-    private void showUpdateDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setIcon(android.R.drawable.ic_dialog_info);
-        builder.setTitle("������APP���汾" + info.getVersion());
-        builder.setMessage(info.getDescription());
-        builder.setCancelable(false);
-        builder.setPositiveButton("ȷ��", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                if (Environment.getExternalStorageState().equals(
-                        Environment.MEDIA_MOUNTED)) {
-                    downFile(info.getUrl());
-                } else {
-                    Toast.makeText(MainActivity.this, "SD�������ã������SD��",
-                            Toast.LENGTH_SHORT).show();
-                }
-            }
-        });
-        builder.setNegativeButton("ȡ��", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-            }
-        });
-        builder.create().show();
-    }
-
-    void downFile(final String url) {
-        progressDialog = new ProgressDialog(MainActivity.this);    //�������������ص�ʱ��ʵʱ���½��ȣ�����û��Ѻö�
-        progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-        progressDialog.setTitle("��������");
-        progressDialog.setMessage("���Ժ�...");
-        progressDialog.setProgress(0);
-        progressDialog.show();
-        updateInfoService.downLoadFile(url, progressDialog,handler1);
-    }
-
 }
+
+
+

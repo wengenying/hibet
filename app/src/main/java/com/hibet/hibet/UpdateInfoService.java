@@ -23,13 +23,15 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
-
-import com.hibet.hibet.GetServerUrl;
-import com.hibet.hibet.UpdateInfo;
+import android.support.v4.content.FileProvider;
 
 public class UpdateInfoService {
+
+    private static final String AUTHORITY="com.hibet.hibet";
+
     ProgressDialog progressDialog;
     Handler handler;
     Context context;
@@ -39,8 +41,7 @@ public class UpdateInfoService {
         this.context=context;
     }
 
-    public UpdateInfo getUpDateInfo() throws Exception {
-        String path = GetServerUrl.getUrl() + "/a.txt";
+    private String writeServerFileContent(String path) throws Exception {
         StringBuffer sb = new StringBuffer();
         String line = null;
         BufferedReader reader = null;
@@ -64,9 +65,19 @@ public class UpdateInfoService {
                 e.printStackTrace();
             }
         }
-        String info = sb.toString();
-        UpdateInfo updateInfo = new UpdateInfo();
+        return sb.toString();
+    }
 
+    public String getNewUrl() throws Exception{
+        String path = GetServerUrl.getUrl() + "/URL.txt";
+        String url = writeServerFileContent(path);
+        return url;
+    }
+
+    public UpdateInfo getUpDateInfo() throws Exception {
+        String path = GetServerUrl.getUrl() + "/UpdateVersion.txt";
+        String info = writeServerFileContent(path);
+        UpdateInfo updateInfo = new UpdateInfo();
         updateInfo.setVersion(info.split("&")[1]);
         updateInfo.setDescription(info.split("&")[2]);
         updateInfo.setUrl(info.split("&")[3]);
@@ -108,9 +119,9 @@ public class UpdateInfoService {
                     if (is != null) {
                         File file = new File(
                                 Environment.getExternalStorageDirectory(),
-                                "Test.apk");
+                                "new.apk");
                         fileOutputStream = new FileOutputStream(file);
-                        byte[] buf = new byte[10];
+                        byte[] buf = new byte[1024];
                         int ch = -1;
                         int process = 0;
                         while ((ch = is.read(buf)) != -1) {
@@ -134,7 +145,7 @@ public class UpdateInfoService {
 
         }.start();
     }
-
+//
     void down() {
         handler.post(new Runnable() {
             public void run() {
@@ -146,10 +157,16 @@ public class UpdateInfoService {
 
     void update() {
         Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setDataAndType(Uri.fromFile(new File(Environment
-                        .getExternalStorageDirectory(), "Test.apk")),
-                "application/vnd.android.package-archive");
+        File file = new File(Environment
+                .getExternalStorageDirectory(), "new.apk");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            Uri contentUri = FileProvider.getUriForFile(context, BuildConfig.APPLICATION_ID + ".fileProvider", file);
+            intent.setDataAndType(contentUri, "application/vnd.android.package-archive");
+        } else {
+            intent.setDataAndType(Uri.fromFile(file), "application/vnd.android.package-archive");
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        }
         context.startActivity(intent);
     }
-
 }
